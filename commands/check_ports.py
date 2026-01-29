@@ -7,12 +7,14 @@ import typer
 
 app = typer.Typer(help="Network port checks.")
 
+
 @dataclass
 class CheckResult:
     host: str
     port: int
     ok: bool
     error: str | None = None
+
 
 def tcp_check(host: str, port: int, timeout: float = 1.0) -> CheckResult:
     try:
@@ -21,10 +23,13 @@ def tcp_check(host: str, port: int, timeout: float = 1.0) -> CheckResult:
     except OSError as e:
         return CheckResult(host=host, port=port, ok=False, error=str(e))
 
+
 @app.command("check-ports")
 def check_ports(
     host: str = typer.Option("127.0.0.1", "--host", "-h", help="Host to check"),
-    ports: str = typer.Option("22,80,443", "--ports", "-p", help="Comma-separated ports, e.g. 22,80,443"),
+    ports: str = typer.Option(
+        "22,80,443", "--ports", "-p", help="Comma-separated ports, e.g. 22,80,443"
+    ),
     timeout: float = typer.Option(1.0, "--timeout", help="TCP connect timeout seconds"),
 ) -> None:
     """
@@ -40,7 +45,7 @@ def check_ports(
             raise ValueError("empty ports")
     except ValueError:
         typer.echo("ERROR: invalid --ports value. Example: --ports 22,80,443")
-        raise typer.Exit(code=3)
+        raise typer.Exit(code=3) from None
 
     any_fail = False
     for port in port_list:

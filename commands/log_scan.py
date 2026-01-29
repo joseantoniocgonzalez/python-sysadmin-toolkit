@@ -3,29 +3,42 @@ from __future__ import annotations
 import csv
 import json
 import re
-from collections import Counter, defaultdict
+from collections import Counter
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
-from typing import Optional
 
 import typer
 
 app = typer.Typer(help="Log analysis utilities (auth/ssh style).")
 
 # Patrones típicos (varían según distro, pero estos cubren muchos casos)
-FAILED_PASSWORD_RE = re.compile(r"Failed password for (invalid user )?(?P<user>\S+) from (?P<ip>\d+\.\d+\.\d+\.\d+)")
+FAILED_PASSWORD_RE = re.compile(
+    r"Failed password for (invalid user )?(?P<user>\S+) from (?P<ip>\d+\.\d+\.\d+\.\d+)"
+)
 INVALID_USER_RE = re.compile(r"Invalid user (?P<user>\S+) from (?P<ip>\d+\.\d+\.\d+\.\d+)")
-PAM_FAILURE_RE = re.compile(r"authentication failure;.*rhost=(?P<ip>\d+\.\d+\.\d+\.\d+).*user=(?P<user>\S*)")
+PAM_FAILURE_RE = re.compile(
+    r"authentication failure;.*rhost=(?P<ip>\d+\.\d+\.\d+\.\d+).*user=(?P<user>\S*)"
+)
 
 # Timestamp syslog: "Jan 01 00:00:01 ..."
 TS_RE = re.compile(r"^(?P<mon>[A-Z][a-z]{2})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})")
 
 MONTHS = {
-    "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4,
-    "May": 5, "Jun": 6, "Jul": 7, "Aug": 8,
-    "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12,
+    "Jan": 1,
+    "Feb": 2,
+    "Mar": 3,
+    "Apr": 4,
+    "May": 5,
+    "Jun": 6,
+    "Jul": 7,
+    "Aug": 8,
+    "Sep": 9,
+    "Oct": 10,
+    "Nov": 11,
+    "Dec": 12,
 }
+
 
 @dataclass
 class ScanResult:
@@ -37,18 +50,20 @@ class ScanResult:
     pam_failure: int
     top_ips: list[tuple[str, int]]
     top_users: list[tuple[str, int]]
-    pattern: Optional[str]
+    pattern: str | None
     pattern_matches: int
+
 
 @dataclass
 class RateResult:
     path: str
     window_minutes: int
     matched_events: int
-    buckets: list[tuple[str, int]]        # (bucket_start_iso, count)
-    top_ips: list[tuple[str, int]]        # (ip, count)
+    buckets: list[tuple[str, int]]  # (bucket_start_iso, count)
+    top_ips: list[tuple[str, int]]  # (ip, count)
 
-def parse_syslog_timestamp(line: str) -> Optional[datetime]:
+
+def parse_syslog_timestamp(line: str) -> datetime | None:
     """
     Parse syslog timestamps like: 'Jan  1 00:00:01' or 'Jan 01 00:00:01'
     Syslog no incluye año, usamos un año fijo para análisis reproducible.
@@ -63,12 +78,16 @@ def parse_syslog_timestamp(line: str) -> Optional[datetime]:
     hh, mm, ss = (int(x) for x in m.group("time").split(":"))
     return datetime(2000, mon, day, hh, mm, ss)
 
+
 def floor_to_window(dt: datetime, window_minutes: int) -> datetime:
     # baja al inicio de la ventana: minuto múltiplo de window_minutes
     minute = (dt.minute // window_minutes) * window_minutes
     return dt.replace(minute=minute, second=0, microsecond=0)
 
-def scan_text(text: str, top_n: int = 10, extra_pattern: Optional[re.Pattern[str]] = None) -> ScanResult:
+
+def scan_text(
+    text: str, top_n: int = 10, extra_pattern: re.Pattern[str] | None = None
+) -> ScanResult:
     ip_counter: Counter[str] = Counter()
     user_counter: Counter[str] = Counter()
 
@@ -123,8 +142,10 @@ def scan_text(text: str, top_n: int = 10, extra_pattern: Optional[re.Pattern[str
         pattern_matches=pattern_matches,
     )
 
+
 def write_json(obj, out_path: Path) -> None:
     out_path.write_text(json.dumps(asdict(obj), ensure_ascii=False, indent=2), encoding="utf-8")
+
 
 def write_csv(rows: list[tuple[str, int]], out_path: Path, header: tuple[str, str]) -> None:
     with out_path.open("w", newline="", encoding="utf-8") as f:
@@ -132,14 +153,17 @@ def write_csv(rows: list[tuple[str, int]], out_path: Path, header: tuple[str, st
         w.writerow(header)
         w.writerows(rows)
 
+
 @app.command("log-scan")
 def log_scan(
     file: str = typer.Option(..., "--file", "-f", help="Path to log file to scan"),
     top: int = typer.Option(10, "--top", help="Top N results (default: 10)"),
-    pattern: Optional[str] = typer.Option(None, "--pattern", help="Extra regex pattern to count (e.g. 'Failed password')"),
-    json_out: Optional[str] = typer.Option(None, "--json-out", help="Write JSON report to this path"),
-    csv_ips: Optional[str] = typer.Option(None, "--csv-ips", help="Write top IPs to CSV path"),
-    csv_users: Optional[str] = typer.Option(None, "--csv-users", help="Write top users to CSV path"),
+    pattern: str | None = typer.Option(
+        None, "--pattern", help="Extra regex pattern to count (e.g. 'Failed password')"
+    ),
+    json_out: str | None = typer.Option(None, "--json-out", help="Write JSON report to this path"),
+    csv_ips: str | None = typer.Option(None, "--csv-ips", help="Write top IPs to CSV path"),
+    csv_users: str | None = typer.Option(None, "--csv-users", help="Write top users to CSV path"),
 ) -> None:
     """
     Scan auth/ssh-style logs and summarize failed login activity.
@@ -152,13 +176,13 @@ def log_scan(
         typer.echo(f"ERROR: file not found: {file}")
         raise typer.Exit(code=3)
 
-    extra_re: Optional[re.Pattern[str]] = None
+    extra_re: re.Pattern[str] | None = None
     if pattern:
         try:
             extra_re = re.compile(pattern)
         except re.error as e:
             typer.echo(f"ERROR: invalid regex in --pattern: {e}")
-            raise typer.Exit(code=3)
+            raise typer.Exit(code=3) from None
 
     text = p.read_text(encoding="utf-8", errors="replace")
     result = scan_text(text, top_n=top, extra_pattern=extra_re)
@@ -168,7 +192,9 @@ def log_scan(
     # Salida por consola (resumen)
     typer.echo(f"File: {result.path}")
     typer.echo(f"Lines: {result.total_lines} | Matched: {result.matched_lines}")
-    typer.echo(f"Failed password: {result.failed_password} | Invalid user: {result.invalid_user} | PAM failure: {result.pam_failure}")
+    typer.echo(
+        f"Failed password: {result.failed_password} | Invalid user: {result.invalid_user} | PAM failure: {result.pam_failure}"
+    )
     if pattern:
         typer.echo(f"Pattern matches: {result.pattern_matches} | Pattern: {pattern}")
 
@@ -190,12 +216,13 @@ def log_scan(
 
     raise typer.Exit(code=0)
 
+
 @app.command("log-rate")
 def log_rate(
     file: str = typer.Option(..., "--file", "-f", help="Path to log file to analyze"),
     window: int = typer.Option(10, "--window", help="Window size in minutes (default: 10)"),
     top: int = typer.Option(5, "--top", help="Top N time windows to show (default: 5)"),
-    json_out: Optional[str] = typer.Option(None, "--json-out", help="Write JSON report to this path"),
+    json_out: str | None = typer.Option(None, "--json-out", help="Write JSON report to this path"),
 ) -> None:
     """
     Group failed-login events into time windows and show the busiest windows.
@@ -223,11 +250,11 @@ def log_rate(
     for line in text.splitlines():
         # solo contamos eventos de interés
         ip = None
-        if (m := FAILED_PASSWORD_RE.search(line)):
+        if m := FAILED_PASSWORD_RE.search(line):
             ip = m.group("ip")
-        elif (m := INVALID_USER_RE.search(line)):
+        elif m := INVALID_USER_RE.search(line):
             ip = m.group("ip")
-        elif (m := PAM_FAILURE_RE.search(line)):
+        elif m := PAM_FAILURE_RE.search(line):
             ip = m.group("ip")
 
         if not ip:
