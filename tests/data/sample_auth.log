@@ -1,0 +1,5 @@
+Jan 01 00:00:01 host sshd[111]: Failed password for invalid user admin from 203.0.113.10 port 5555 ssh2
+Jan 01 00:00:02 host sshd[111]: Failed password for root from 203.0.113.10 port 5556 ssh2
+Jan 01 00:00:03 host sshd[111]: Invalid user test from 198.51.100.5 port 2222
+Jan 01 00:00:04 host sshd[111]: Failed password for root from 203.0.113.10 port 5557 ssh2
+Jan 01 00:00:05 host sshd[111]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=198.51.100.5  user=
