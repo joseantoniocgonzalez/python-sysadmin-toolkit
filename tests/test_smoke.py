@@ -1,6 +1,7 @@
-from typer.testing import CliRunner
 import json
 from pathlib import Path
+
+from typer.testing import CliRunner
 
 from mytool.cli import app
 
@@ -49,8 +50,6 @@ def test_log_scan_counts_and_top():
     assert "pam failure: 1" in out
     # top ip 203.0.113.10 aparece 3 veces en failed password
     assert "203.0.113.10" in r.stdout
-
-
 
 
 def test_log_scan_exports_json_and_csv(tmp_path: Path):
