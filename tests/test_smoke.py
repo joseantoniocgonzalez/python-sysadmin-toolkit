@@ -88,3 +88,24 @@ def test_log_scan_invalid_regex_pattern():
     r = runner.invoke(app, ["logs", "log-scan", "--file", "tests/data/sample_auth.log", "--pattern", "["])
     assert r.exit_code == 3
     assert "invalid regex" in r.stdout.lower()
+
+def test_log_rate_invalid_window():
+    r = runner.invoke(app, ["logs", "log-rate", "--file", "tests/data/sample_auth_rate.log", "--window", "0"])
+    assert r.exit_code == 3
+    assert "window must be > 0" in r.stdout.lower()
+
+def test_log_rate_buckets_default_10min():
+    r = runner.invoke(app, ["logs", "log-rate", "--file", "tests/data/sample_auth_rate.log", "--window", "10", "--top", "5"])
+    assert r.exit_code == 0
+    out = r.stdout
+    # En ventana 00:00 hay 3 eventos (00:00:01, 00:05:00, 00:09:59)
+    assert "2000-01-01T00:00" in out
+    assert "2000-01-01T00:10" in out
+    # el primer bucket debería tener 3
+    assert "2000-01-01T00:00  3" in out
+
+def test_log_rate_json_export(tmp_path):
+    out_json = tmp_path / "rate.json"
+    r = runner.invoke(app, ["logs", "log-rate", "--file", "tests/data/sample_auth_rate.log", "--window", "10", "--json-out", str(out_json)])
+    assert r.exit_code == 0
+    assert out_json.exists()
