@@ -44,3 +44,47 @@ def test_log_scan_counts_and_top():
     assert "pam failure: 1" in out
     # top ip 203.0.113.10 aparece 3 veces en failed password
     assert "203.0.113.10" in r.stdout
+
+import json
+from pathlib import Path
+
+def test_log_scan_exports_json_and_csv(tmp_path: Path):
+    out_json = tmp_path / "report.json"
+    out_ips = tmp_path / "ips.csv"
+    out_users = tmp_path / "users.csv"
+
+    r = runner.invoke(
+        app,
+        [
+            "logs", "log-scan",
+            "--file", "tests/data/sample_auth.log",
+            "--top", "3",
+            "--pattern", "Failed password",
+            "--json-out", str(out_json),
+            "--csv-ips", str(out_ips),
+            "--csv-users", str(out_users),
+        ],
+    )
+    assert r.exit_code == 0
+
+    assert out_json.exists()
+    assert out_ips.exists()
+    assert out_users.exists()
+
+    data = json.loads(out_json.read_text(encoding="utf-8"))
+    assert data["failed_password"] == 3
+    assert data["pattern_matches"] == 3
+    assert data["pattern"] == "Failed password"
+
+    ips_lines = out_ips.read_text(encoding="utf-8").splitlines()
+    assert ips_lines[0] == "ip,count"
+    assert any("203.0.113.10,3" in line for line in ips_lines[1:])
+
+    users_lines = out_users.read_text(encoding="utf-8").splitlines()
+    assert users_lines[0] == "user,count"
+    assert any("root,2" in line for line in users_lines[1:])
+
+def test_log_scan_invalid_regex_pattern():
+    r = runner.invoke(app, ["logs", "log-scan", "--file", "tests/data/sample_auth.log", "--pattern", "["])
+    assert r.exit_code == 3
+    assert "invalid regex" in r.stdout.lower()
