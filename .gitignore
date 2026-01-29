@@ -9,3 +9,14 @@ htmlcov/
 *.egg-info/
 dist/
 build/
+
+# Python cache / artifacts
+__pycache__/
+*.pyc
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
