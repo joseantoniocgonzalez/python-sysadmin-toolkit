@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import shutil
 from pathlib import Path
-from typing import Optional
 
 import typer
 
 app = typer.Typer(help="Disk usage report utilities.")
+
 
 @app.command("disk-report")
 def disk_report(
