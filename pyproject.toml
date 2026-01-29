@@ -19,3 +19,6 @@ dev = ["pytest>=8"]
 
 [tool.setuptools]
 packages = ["mytool", "commands"]
+
+[project.scripts]
+mytool = "mytool.cli:app"
